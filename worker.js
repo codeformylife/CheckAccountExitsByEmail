@@ -64,15 +64,10 @@ async function checkAccount(email, proxy, agent) {
     });
 };
 
-function loopCheck(email, agent, listProxy, loopCount) {
+function checkMail(email, agent, listProxy) {
     const proxy = listProxy[getRndInteger(0, listProxy.length)];
     checkAccount(email, proxy, agent).then((res) => {
-        if (!res) {
-            if (loopCount < 5) {
-                loopCount++;
-                loopCheck(email, agent, listProxy, loopCount)
-            }
-        } else {
+        if (res) {
             console.log('->>>>>>>>>>>>>>>>>>>>>>res :' + email, res);
             parentPort.postMessage({ email, success: true });
         }
@@ -83,5 +78,8 @@ parentPort.on("message", async (param) => {
     const email = param.email;
     const agent = param.agent;
     console.log('checking mail : ' + email)
-    loopCheck(email, agent, param.listProxy, 1);
+    checkMail(email, agent, param.listProxy, 1);
+    checkMail(email, agent, param.listProxy, 1);
+    checkMail(email, agent, param.listProxy, 1);
+    checkMail(email, agent, param.listProxy, 1);
 });

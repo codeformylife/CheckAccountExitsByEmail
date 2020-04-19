@@ -1,12 +1,13 @@
 
 const { StaticPool } = require("node-worker-threads-pool");
-const filePath = "./worker.js";
+const worker = "./worker.js";
+const worker2 = "./worker2.js";
 const UserAgent = require("./User-Agent");
 const fs = require('fs');
 const listProxy = [];
 const pool = new StaticPool({
     size: 30,
-    task: filePath,
+    task: worker2,
     workerData: 'haha'
 });
 
@@ -23,9 +24,9 @@ function loadProxy() {
 function main() {
     const email = [
         'nguyenducthien1998',
-        '0566662225',
-        'thientongthong1@gmail.com',
-        'tienanh@gmail.com'
+        '0566662s225',
+        'thientongtshong1@gmail.com',
+        'tienanh@gsmail.com'
     ]
     if (listProxy.length == 0) {
         loadProxy();
