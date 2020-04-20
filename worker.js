@@ -9,8 +9,8 @@ function getRndInteger(min, max) {
 }
 
 function writeSource(pageSource, email) {
-    fs.writeFile('index.html', pageSource, function (err, result) {
-        // fs.writeFile(process.cwd() + '\\temp\\' +email+ '.html', pageSource, function (err, result) {
+    // fs.writeFile('index.html', pageSource, function (err, result) {
+    fs.writeFile(process.cwd() + '\\temp\\' + email + '.html', pageSource, function (err, result) {
         if (err) console.log('error', err);
     });
 }
@@ -58,20 +58,18 @@ async function checkAccount(email, proxy, agent) {
             proxy
         }).then(async response => {
             document = new JSDOM(response.data).window.document;
-            writeSource(response.data, email); //debug
             // if (!document.getElementById('login_identify_search_error_msg') && document.getElementById('contact_point_selector_form')) {
             while (!document) { }
             flag = false;
             let error = '';
-            let check2 = true;
             try {
                 error = document.querySelector('div[data-sigil="marea"]').textContent;
             } catch{
-                check2 = false;
                 error = document.querySelector('div span').textContent;
             }
-            if (check2 && !document.getElementById('login_identify_search_error_msg')) {
+            if (!document.getElementById('login_identify_search_error_msg') && document.getElementById('identify_search_text_input')) {
                 // console.log(' Founded : ' + formData.email);
+                writeSource(response.data, email); //debug
                 flag = true;
             } else {
                 console.log(formData.email + ' error :', error);
@@ -85,24 +83,35 @@ async function checkAccount(email, proxy, agent) {
 };
 
 async function checkMail(email, agent, proxy) {
-
     return await checkAccount(email, proxy, agent);
 }
 
-parentPort.on("message", async (param) => {
+async function checking(param, count) {
     const email = param.email;
     const agent = param.agent;
     let check = [];
-    for (let i = 0; i < 10; i++) {
-    const proxy = param.listProxy[getRndInteger(0, param.listProxy.length)];
-    check.push(checkMail(email, agent, proxy));
+    for (let i = 0; i < 5; i++) {
+        const proxy = param.listProxy[getRndInteger(0, param.listProxy.length)];
+        check.push(checkMail(email, agent, proxy));
+        count++;
     }
     const result = await Promise.all(check);
     if (!result.includes(true) && !result.includes(false)) {
-        console.log(email + ' can\'t connect to 10 proxies');
+        if (count < 30) {
+            checking(param, count);
+        }
+        else {
+            console.log(email + ' can\'t connect to ' + count + ' proxies');
+            parentPort.postMessage({ email, success: false });
+        }
     }
+
     if (result.includes(true)) {
         parentPort.postMessage({ email, success: true });
     }
+}
 
+parentPort.on("message", async (param) => {
+    let count = 1;
+    await checking(param, count);
 });
