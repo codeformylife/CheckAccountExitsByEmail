@@ -17,8 +17,7 @@
   },
   "homepage": "https://github.com/codeformylife/CheckAccountExitsByEmail#readme",
   "dependencies": {
-    "axios": "^0.19.2",
     "jsdom": "^16.2.2",
-    "node-worker-threads-pool": "^1.2.2"
+    "request-promise": "^4.2.5"
   }
 }

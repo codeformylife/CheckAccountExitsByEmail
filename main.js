@@ -1,15 +1,8 @@
 
-const { StaticPool } = require("node-worker-threads-pool");
-const worker = "./worker.js";
-const worker2 = "./worker2.js";
-const UserAgent = require("./User-Agent");
+const Worker = require("./worker");
 const fs = require('fs');
 const listProxy = [];
-const pool = new StaticPool({
-    size: 30,
-    task: worker,
-    workerData: 'haha'
-});
+
 
 function loadProxy() {
     fs.readFileSync('listProxy.txt', 'utf-8').split(/\r?\n/).forEach(function (line) {
@@ -19,9 +12,15 @@ function loadProxy() {
             port: temp[1]
         })
     })
+    console.log('loaded proxy');
+
 }
 
-function main() {
+function getRndInteger(min, max) {
+    return Math.floor(Math.random() * (max - min)) + min;
+}
+
+async function main() {
     const email = [
         'lam.phantungww.7',
         '100008834020356',
@@ -55,20 +54,12 @@ function main() {
         'tonymatthews@hotmail.fr',
         'mario79@hotmail.fr'
     ]
-    if (listProxy.length == 0) {
-        loadProxy();
-        console.log('loaded proxy');
-    }
-    for (const iterator of email) {
-        (async () => {
-            const param = {
-                email: iterator,
-                agent: UserAgent.getRandomUserAgentMobile(),
-                listProxy
-            };
-            const res = await pool.exec(param);
+    loadProxy();
+        for (const iterator of email) {
+            const proxy = listProxy[getRndInteger(0, listProxy.length)];
+            const res = await Worker.checkAccount(iterator, proxy);
             console.log(`result: `, res);
-        })();
-    }
+        }
+
 }
 main();
