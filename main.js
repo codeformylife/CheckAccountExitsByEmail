@@ -2,7 +2,7 @@
 const Worker = require("./worker");
 const fs = require('fs');
 const listProxy = [];
-
+const FakeIp = require("./fake-ip-dcom");
 
 function loadProxy() {
     fs.readFileSync('listProxy.txt', 'utf-8').split(/\r?\n/).forEach(function (line) {
@@ -55,12 +55,25 @@ async function main() {
         'mario79@hotmail.fr'
     ]
     loadProxy();
-        for (const iterator of email) {
-            console.log(`checking: `, iterator);
-            const proxy = listProxy[getRndInteger(0, listProxy.length)];
-            const res = await Worker.checkAccount(iterator, proxy);
-            console.log(`result: `, res);
+    let count = 0;
+
+    for (const iterator of email) {
+        if (count == 5) {
+            await FakeIp.fakeIpViettel().then(res => {
+                if (res) {
+                    count = 0;
+                }
+            })
         }
+        else {
+            console.log(`checking: `, iterator);
+            // const proxy = listProxy[getRndInteger(0, listProxy.length)];
+            // const res = await Worker.checkAccount(iterator, proxy);
+            const res = await Worker.checkAccount(iterator);
+            console.log(`result: `, res);
+            count++;
+        }
+    }
 
 }
 main();
