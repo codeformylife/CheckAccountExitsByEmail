@@ -56,6 +56,7 @@ async function main() {
     ]
     loadProxy();
         for (const iterator of email) {
+            console.log(`checking: `, iterator);
             const proxy = listProxy[getRndInteger(0, listProxy.length)];
             const res = await Worker.checkAccount(iterator, proxy);
             console.log(`result: `, res);
