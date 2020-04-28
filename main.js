@@ -382,6 +382,7 @@ const checkAccount = async (email, proxy) => {
         })
     }
 
+
     const resultMicrosoft = await microsoft(request, email);
     if (resultMicrosoft.code == 'microsoft check' && !listProxyOK.includes(proxy.host + ':' + proxy.port)) {
         if (!fs.existsSync('proxyok.txt')) {
@@ -456,13 +457,18 @@ async function run() {
 }
 
 async function main() {
+    if (listProxyOK.length == 0 && fs.existsSync('proxyok.txt')) {
+        fs.unlink('proxyok.txt', function (err) {
+            if (err) throw err;
+            console.log('File deleted!');
+        });
+    }
     await loadProxy();
     try {
         for (let i = 0; i < 100; i++) {
             run();
         }
     } catch (e) {
-        main();
     }
 
 }
