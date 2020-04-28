@@ -251,7 +251,7 @@ async function postSearch(request, url, refUrl, userAgent, cookie, email, formDa
                 if (error.response.headers['set-cookie']) {
                     newCookie = buildCookie(error.response.headers['set-cookie']);
                 }
-                result = await getSearchResult(resLocation, refUrl, userAgent, newCookie, email);
+                result = await getSearchResult(request,resLocation, refUrl, userAgent, newCookie, email);
             })
         return result;
     }
