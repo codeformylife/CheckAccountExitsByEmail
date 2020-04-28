@@ -14,6 +14,7 @@ const domain = [
 ]
 let cookieObject = {};
 let listProxy = [];
+let listProxyOK = [];
 let proxyIndex = 0;
 
 
@@ -382,11 +383,12 @@ const checkAccount = async (email, proxy) => {
     }
 
     const resultMicrosoft = await microsoft(request, email);
-    if (resultMicrosoft.code == 'microsoft check') {
+    if (resultMicrosoft.code == 'microsoft check' && !listProxyOK.includes(proxy.host + ':' + proxy.port)) {
         if (!fs.existsSync('proxyok.txt')) {
             var createStream = fs.createWriteStream("proxyok.txt");
             createStream.end();
         }
+        listProxyOK.push(proxy.host + ':' + proxy.port)
         fs.appendFile('proxyok.txt', proxy.host + ':' + proxy.port + '\n', function (err, result) {
         });
     }
@@ -467,6 +469,6 @@ async function main() {
 process.on('uncaughtException', function (err) {
     console.error(err.stack);
     console.log("Node NOT Exiting...");
-  });
+});
 main();
 
