@@ -21,6 +21,7 @@
     "child_process": "^1.0.2",
     "jsdom": "^16.2.2",
     "node-worker-threads-pool": "^1.2.2",
-    "request-promise": "^4.2.5"
+    "request-promise": "^4.2.5",
+    "google-spreadsheet": "^3.0.11"
   }
 }

